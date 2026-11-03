@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dynamis WMS - Terminal de Armazém & Estoque</title>
+  <style>
+    :root {
+      --primary: #1e40af;
+      --primary-hover: #1d4ed8;
+      --bg: #f1f5f9;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --danger: #dc2626;
+      --coletor-accent: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg); color: var(--text); }
+    [hidden] { display: none !important; }
+
+    .login-page {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      padding: 32px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+    .login-card h1 { margin-bottom: 8px; font-size: 24px; }
+    .login-card > p { margin-bottom: 24px; color: var(--muted); }
+    .login-card .form-group { margin-bottom: 18px; }
+    .login-card .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font: inherit;
+    }
+    .login-error { min-height: 24px; margin: 12px 0; color: var(--danger); font-size: 14px; }
+    .btn-logout {
+      padding: 7px 10px;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      background: transparent;
+      color: white;
+      cursor: pointer;
+    }
+
+    header {
+      background-color: #0f172a;
+      color: white;
+      padding: 14px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand { font-size: 19px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+    .brand span { background: #3b82f6; padding: 3px 8px; border-radius: 4px; font-size: 12px; }
+    .operador-info { font-size: 13px; color: #94a3b8; }
+
+    .container { max-width: 1150px; margin: 24px auto; padding: 0 16px; }
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid var(--border);
+      margin-bottom: 20px;
+      overflow-x: auto;
+    }
+    .nav-btn {
+      background: none;
+      border: none;
+      padding: 12px 18px;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .nav-btn.active {
+      color: var(--primary);
+      border-bottom: 3px solid var(--primary);
+      margin-bottom: -2px;
+    }
+
+    .secao { display: none; }
+    .secao.active { display: block; }
+    .card {
+      background: var(--card-bg);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      padding: 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    .coletor-box {
+      border: 2px solid var(--coletor-accent);
+      background: #fffbeb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .coletor-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #92400e;
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+    .barcode-input {
+      width: 100%;
+      padding: 14px;
+      font-size: 18px;
+      font-family: monospace;
+      border: 2px solid #d97706;
+      border-radius: 8px;
+      background: white;
+      outline: none;
+      font-weight: bold;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    button.btn-primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+      font-size: 15px;
+    }
+    button.btn-primary:hover { background: var(--primary-hover); }
+
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border); font-size: 14px; }
+    th { background: #f8fafc; color: var(--muted); font-size: 12px; text-transform: uppercase; }
+    .badge { padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 12px; }
+    .badge-in { background: #dcfce7; color: #15803d; }
+    .badge-out { background: #fee2e2; color: #b91c1c; }
+    .badge-transf { background: #e0f2fe; color: #0369a1; }
+
+    #toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 6px;
+      color: white;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 999;
+      max-width: calc(100vw - 40px);
+    }
+    #toast.show { opacity: 1; }
+
+    @media (max-width: 640px) {
+      header { align-items: flex-start; flex-direction: column; gap: 8px; }
+      .grid-2 { grid-template-columns: 1fr; gap: 0; }
+      .card { padding: 16px; }
+      #toast { right: 12px; bottom: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <main id="loginPage" class="login-page">
+    <section class="login-card" aria-labelledby="loginTitle">
+      <div class="brand">📦 DYNAMIS <span>WMS</span></div>
+      <h1 id="loginTitle" style="margin-top: 24px;">Acesso ao armazém</h1>
+      <p>Entre com seu e-mail ou matrícula e senha.</p>
+      <form id="formLogin">
+        <div class="form-group">
+          <label for="loginIdentificador">E-mail ou matrícula</label>
+          <input id="loginIdentificador" name="login" autocomplete="username" required>
+        </div>
+        <div class="form-group">
+          <label for="loginSenha">Senha</label>
+          <input id="loginSenha" name="senha" type="password" autocomplete="current-password" required>
+        </div>
+        <p id="loginErro" class="login-error" role="alert" aria-live="polite"></p>
+        <button id="btnLogin" class="btn-primary" type="submit">Entrar</button>
+      </form>
+    </section>
+  </main>
+
+  <div id="appShell" hidden>
+  <header>
+    <div class="brand">📦 DYNAMIS <span>WMS</span></div>
+    <div class="operador-info">
+      👤 Estoquista: <strong id="nomeOperador"></strong>
+      <button class="btn-logout" type="button" onclick="sair()">Sair</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="nav-tabs">
+      <button class="nav-btn active" type="button" onclick="trocarAba('estoque', this)">📋 Consultar Estoque</button>
+      <button class="nav-btn" type="button" onclick="trocarAba('coletor', this)">📲 Coletor / Bipagem</button>
+      <button class="nav-btn" type="button" onclick="trocarAba('picking', this)">🗺️ Rota de Picking</button>
+      <button class="nav-btn" type="button" onclick="trocarAba('historico', this)">📜 Auditoria & Histórico</button>
+      <button class="nav-btn" type="button" onclick="trocarAba('cadastro', this)">➕ Cadastrar Produto</button>
+    </div>
+
+    <div id="secao-estoque" class="secao active">
+      <div class="card">
+        <h3>Saldo Físico no Galpão</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Descrição</th>
+                <th>Código de Barras</th>
+                <th>Categoria</th>
+                <th>Saldo Total</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaEstoque">
+              <tr><td colspan="5">Carregando estoque...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="secao-coletor" class="secao">
+      <div class="card">
+        <div class="coletor-box">
+          <div class="coletor-title">📟 BIPAGEM DE CÓDIGO DE BARRAS / SKU</div>
+          <input type="text" id="leitorCodigo" class="barcode-input" placeholder="Bipe ou digite o código de barras (Ex: 7891000000011)" oninput="identificarPorCodigo()">
+          <small style="color: #b45309; margin-top: 4px; display: block;">Simula o leitor óptico do coletor de dados portátil.</small>
+        </div>
+
+        <form id="formMovimento" onsubmit="confirmarMovimentacao(event)">
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="movProduto">Produto Selecionado:</label>
+              <select id="movProduto" required onchange="aoSelecionarProduto()">
+                <option value="">Selecione o produto...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="movTipo">Tipo de Operação:</label>
+              <select id="movTipo" required onchange="ajustarCamposEndereco()">
+                <option value="ENTRADA">📥 ENTRADA (Recebimento)</option>
+                <option value="SAIDA">📤 SAÍDA (Expedição / Baixa)</option>
+                <option value="TRANSFERENCIA">🔄 TRANSFERÊNCIA INTERNA</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group" id="grupoOrigem" style="display: none;">
+              <label for="movOrigem">Endereço de Origem (Onde pegar):</label>
+              <select id="movOrigem"></select>
+            </div>
+            <div class="form-group" id="grupoDestino">
+              <label for="movDestino">Endereço de Destino (Onde estocar):</label>
+              <select id="movDestino"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="movQuantidade">Quantidade a Movimentar:</label>
+            <input type="number" id="movQuantidade" min="1" step="1" value="10" required>
+          </div>
+
+          <button type="submit" class="btn-primary" style="background: #d97706;">⚡ Confirmar Movimentação Atômica</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="secao-picking" class="secao">
+      <div class="card">
+        <h3>🗺️ Cálculo de Rota Otimizada de Separação (Picking Route)</h3>
+        <p style="color: var(--muted); font-size: 13px; margin: 8px 0 15px;">
+          Ordenação algorítmica pelo corredor, prateleira, nível e nicho para minimizar o tempo de caminhada do estoquista.
+        </p>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Sequência</th>
+                <th>Endereço Físico</th>
+                <th>SKU</th>
+                <th>Produto</th>
+                <th>Qtd a Separar</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaPicking">
+              <tr><td colspan="6">Carregando rota de picking...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="secao-historico" class="secao">
+      <div class="card">
+        <h3>📜 Log de Auditoria Imutável (Append-Only)</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Data/Hora</th>
+                <th>Tipo</th>
+                <th>Estoquista</th>
+                <th>Produto</th>
+                <th>Origem</th>
+                <th>Destino</th>
+                <th>Qtd</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaHistorico">
+              <tr><td colspan="7">Carregando histórico...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="secao-cadastro" class="secao">
+      <div class="card" style="max-width: 600px; margin: 0 auto;">
+        <h3>Cadastrar Novo Produto</h3>
+        <form id="formCadastro" onsubmit="cadastrarProduto(event)">
+          <div class="form-group">
+            <label for="cadSku">SKU:</label>
+            <input type="text" id="cadSku" required>
+          </div>
+          <div class="form-group">
+            <label for="cadBar">Código de Barras:</label>
+            <input type="text" id="cadBar" required>
+          </div>
+          <div class="form-group">
+            <label for="cadDesc">Descrição:</label>
+            <input type="text" id="cadDesc" required>
+          </div>
+          <div class="form-group">
+            <label for="cadCat">Categoria:</label>
+            <input type="text" id="cadCat" required>
+          </div>
+          <div class="form-group">
+            <label for="cadMod">Modelo:</label>
+            <input type="text" id="cadMod">
+          </div>
+          <button type="submit" class="btn-primary">Salvar no PostgreSQL</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  </div>
+
+  <script>
+    let cacheProdutos = [];
+    let cacheEnderecos = [];
+    let toastTimer;
+
+    async function requisicaoJson(url, opcoes) {
+      const resposta = await fetch(url, opcoes);
+      const dados = await resposta.json();
+      if (!resposta.ok) {
+        throw new Error(dados.erro || 'Não foi possível concluir a solicitação.');
+      }
+      return dados;
+    }
+
+    function criarCelula(valor, tag = 'td') {
+      const celula = document.createElement(tag);
+      celula.textContent = valor == null ? '-' : String(valor);
+      return celula;
+    }
+
+    function criarLinhaVazia(corpo, colunas, mensagem) {
+      const linha = document.createElement('tr');
+      const celula = criarCelula(mensagem);
+      celula.colSpan = colunas;
+      celula.style.textAlign = 'center';
+      linha.appendChild(celula);
+      corpo.replaceChildren(linha);
+    }
+
+    function trocarAba(aba, botao) {
+      document.querySelectorAll('.nav-btn').forEach(item => item.classList.remove('active'));
+      document.querySelectorAll('.secao').forEach(secao => secao.classList.remove('active'));
+      botao.classList.add('active');
+      document.getElementById(`secao-${aba}`).classList.add('active');
+
+      if (aba === 'estoque') carregarEstoque();
+      if (aba === 'historico') carregarHistorico();
+      if (aba === 'picking') carregarPicking();
+    }
+
+    async function carregarEstoque() {
+      const corpo = document.getElementById('tabelaEstoque');
+      try {
+        const produtos = await requisicaoJson('/api/produtos');
+        if (!Array.isArray(produtos)) throw new Error('Resposta inválida ao carregar produtos.');
+        cacheProdutos = produtos;
+        corpo.replaceChildren();
+
+        if (cacheProdutos.length === 0) {
+          criarLinhaVazia(corpo, 5, 'Nenhum produto cadastrado.');
+        } else {
+          cacheProdutos.forEach(produto => {
+            const linha = document.createElement('tr');
+            const sku = criarCelula(produto.sku);
+            const skuDestaque = document.createElement('strong');
+            skuDestaque.textContent = sku.textContent;
+            sku.replaceChildren(skuDestaque);
+            linha.append(
+              sku,
+              criarCelula(produto.descricao),
+              criarCelula(produto.codigo_barras),
+              criarCelula(produto.categoria),
+            );
+            const saldo = criarCelula(`${produto.saldo_total ?? 0} un`);
+            const saldoDestaque = document.createElement('strong');
+            saldoDestaque.style.color = '#16a34a';
+            saldoDestaque.textContent = saldo.textContent;
+            saldo.replaceChildren(saldoDestaque);
+            linha.appendChild(saldo);
+            corpo.appendChild(linha);
+          });
+        }
+        atualizarSelectProdutos();
+      } catch (erro) {
+        criarLinhaVazia(corpo, 5, 'Erro ao carregar estoque.');
+        toast(erro.message, '#dc2626');
+      }
+    }
+
+    async function carregarEnderecos() {
+      try {
+        const enderecos = await requisicaoJson('/api/enderecos');
+        if (!Array.isArray(enderecos)) throw new Error('Resposta inválida ao carregar endereços.');
+        cacheEnderecos = enderecos;
+        const origem = document.getElementById('movOrigem');
+        const destino = document.getElementById('movDestino');
+        origem.replaceChildren();
+        destino.replaceChildren();
+
+        [origem, destino].forEach(select => {
+          const opcao = document.createElement('option');
+          opcao.value = '';
+          opcao.textContent = 'Selecione o endereço...';
+          select.appendChild(opcao);
+        });
+
+        cacheEnderecos.forEach(endereco => {
+          [origem, destino].forEach(select => {
+            const opcao = document.createElement('option');
+            opcao.value = endereco.id_endereco;
+            opcao.textContent = `${endereco.codigo_endereco} (Corredor ${endereco.corredor})`;
+            select.appendChild(opcao);
+          });
+        });
+        ajustarCamposEndereco();
+      } catch (erro) {
+        toast(erro.message, '#dc2626');
+      }
+    }
+
+    function atualizarSelectProdutos() {
+      const select = document.getElementById('movProduto');
+      select.replaceChildren();
+      const opcaoInicial = document.createElement('option');
+      opcaoInicial.value = '';
+      opcaoInicial.textContent = 'Selecione o produto...';
+      select.appendChild(opcaoInicial);
+
+      cacheProdutos.forEach(produto => {
+        const opcao = document.createElement('option');
+        opcao.value = produto.id_produto;
+        opcao.textContent = `${produto.descricao} (${produto.sku})`;
+        select.appendChild(opcao);
+      });
+    }
+
+    function identificarPorCodigo() {
+      const valor = document.getElementById('leitorCodigo').value.trim().toLowerCase();
+      const produto = cacheProdutos.find(item =>
+        String(item.codigo_barras || '').toLowerCase() === valor ||
+        String(item.sku || '').toLowerCase() === valor
+      );
+      if (produto) {
+        document.getElementById('movProduto').value = produto.id_produto;
+        toast(`Identificado: ${produto.descricao}`, '#15803d');
+      }
+    }
+
+    function aoSelecionarProduto() {
+      const idProduto = document.getElementById('movProduto').value;
+      const produto = cacheProdutos.find(item => String(item.id_produto) === idProduto);
+      if (produto) document.getElementById('leitorCodigo').value = produto.codigo_barras || '';
+    }
+
+    function ajustarCamposEndereco() {
+      const tipo = document.getElementById('movTipo').value;
+      const origem = document.getElementById('grupoOrigem');
+      const destino = document.getElementById('grupoDestino');
+      const selectOrigem = document.getElementById('movOrigem');
+      const selectDestino = document.getElementById('movDestino');
+      const exigeOrigem = tipo !== 'ENTRADA';
+      const exigeDestino = tipo !== 'SAIDA';
+
+      origem.style.display = exigeOrigem ? 'block' : 'none';
+      destino.style.display = exigeDestino ? 'block' : 'none';
+      selectOrigem.required = exigeOrigem;
+      selectDestino.required = exigeDestino;
+    }
+
+    async function confirmarMovimentacao(evento) {
+      evento.preventDefault();
+      const tipo = document.getElementById('movTipo').value;
+      const origem = document.getElementById('movOrigem').value;
+      const destino = document.getElementById('movDestino').value;
+      const corpo = {
+        tipo,
+        id_estoquista: 1,
+        id_produto: Number(document.getElementById('movProduto').value),
+        id_origem: tipo === 'ENTRADA' ? null : Number(origem),
+        id_destino: tipo === 'SAIDA' ? null : Number(destino),
+        quantidade: Number(document.getElementById('movQuantidade').value),
+      };
+
+      try {
+        const resultado = await requisicaoJson('/api/movimentacoes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(corpo),
+        });
+        toast(`Movimentação #${resultado.id_movimentacao} realizada com sucesso!`, '#15803d');
+        document.getElementById('formMovimento').reset();
+        ajustarCamposEndereco();
+        await carregarEstoque();
+      } catch (erro) {
+        toast(erro.message || 'Erro de conexão com o servidor.', '#dc2626');
+      }
+    }
+
+    async function carregarHistorico() {
+      const corpo = document.getElementById('tabelaHistorico');
+      try {
+        const historico = await requisicaoJson('/api/historico');
+        if (!Array.isArray(historico)) throw new Error('Resposta inválida ao carregar histórico.');
+        corpo.replaceChildren();
+        if (historico.length === 0) {
+          criarLinhaVazia(corpo, 7, 'Nenhuma movimentação registrada.');
+          return;
+        }
+
+        historico.forEach(item => {
+          const linha = document.createElement('tr');
+          linha.appendChild(criarCelula(item.data_hora ? new Date(item.data_hora).toLocaleString('pt-BR') : '-'));
+          const tipo = criarCelula('');
+          const badge = document.createElement('span');
+          badge.className = `badge ${item.tipo_movimentacao === 'ENTRADA' ? 'badge-in' : item.tipo_movimentacao === 'SAIDA' ? 'badge-out' : 'badge-transf'}`;
+          badge.textContent = item.tipo_movimentacao || '-';
+          tipo.appendChild(badge);
+          linha.append(tipo, criarCelula(item.estoquista), criarCelula(item.descricao), criarCelula(item.origem), criarCelula(item.destino));
+          const quantidade = criarCelula(`${item.quantidade ?? '-'} un`);
+          const destaque = document.createElement('strong');
+          destaque.textContent = quantidade.textContent;
+          quantidade.replaceChildren(destaque);
+          linha.appendChild(quantidade);
+          corpo.appendChild(linha);
+        });
+      } catch (erro) {
+        criarLinhaVazia(corpo, 7, 'Erro ao carregar histórico.');
+        toast(erro.message, '#dc2626');
+      }
+    }
+
+    async function carregarPicking() {
+      const corpo = document.getElementById('tabelaPicking');
+      try {
+        const rotas = await requisicaoJson('/api/picking');
+        if (!Array.isArray(rotas)) throw new Error('Resposta inválida ao carregar rota de picking.');
+        corpo.replaceChildren();
+        if (rotas.length === 0) {
+          criarLinhaVazia(corpo, 6, 'Nenhuma ordem de picking em aberto.');
+          return;
+        }
+
+        rotas.forEach(item => {
+          const linha = document.createElement('tr');
+          linha.append(
+            criarCelula(`#${item.sequencia ?? '-'}`),
+            criarCelula(item.codigo_endereco),
+            criarCelula(item.sku),
+            criarCelula(item.descricao),
+            criarCelula(`${item.quantidade ?? '-'} un`),
+          );
+          const status = criarCelula('');
+          const badge = document.createElement('span');
+          badge.className = `badge ${item.separado ? 'badge-in' : 'badge-out'}`;
+          badge.textContent = item.separado ? 'Separado' : 'Pendente';
+          status.appendChild(badge);
+          linha.appendChild(status);
+          corpo.appendChild(linha);
+        });
+      } catch (erro) {
+        criarLinhaVazia(corpo, 6, 'Erro ao carregar rota de picking.');
+        toast(erro.message, '#dc2626');
+      }
+    }
+
+    async function cadastrarProduto(evento) {
+      evento.preventDefault();
+      const produto = {
+        sku: document.getElementById('cadSku').value.trim(),
+        codigo_barras: document.getElementById('cadBar').value.trim(),
+        descricao: document.getElementById('cadDesc').value.trim(),
+        categoria: document.getElementById('cadCat').value.trim(),
+        marca_modelo: document.getElementById('cadMod').value.trim(),
+      };
+
+      try {
+        await requisicaoJson('/api/produtos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(produto),
+        });
+        toast('Produto gravado com sucesso!', '#15803d');
+        document.getElementById('formCadastro').reset();
+        trocarAba('estoque', document.querySelector('.nav-btn'));
+      } catch (erro) {
+        toast(erro.message || 'Erro de conexão com o servidor.', '#dc2626');
+      }
+    }
+
+    function toast(mensagem, cor) {
+      const elemento = document.getElementById('toast');
+      elemento.textContent = mensagem;
+      elemento.style.background = cor;
+      elemento.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => elemento.classList.remove('show'), 3500);
+    }
+
+    async function entrar(evento) {
+      evento.preventDefault();
+      const formulario = document.getElementById('formLogin');
+      const botao = document.getElementById('btnLogin');
+      const erro = document.getElementById('loginErro');
+      const dados = new FormData(formulario);
+      erro.textContent = '';
+      botao.disabled = true;
+      botao.textContent = 'Entrando...';
+
+      try {
+        const resultado = await requisicaoJson('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            login: dados.get('login'),
+            senha: dados.get('senha'),
+          }),
+        });
+
+        if (!resultado.usuario) throw new Error('Resposta inválida do servidor.');
+        document.getElementById('nomeOperador').textContent =
+          `${resultado.usuario.nome || resultado.usuario.email || resultado.usuario.matricula} (${resultado.usuario.matricula || 'estoquista'})`;
+        formulario.reset();
+        document.getElementById('loginPage').hidden = true;
+        document.getElementById('appShell').hidden = false;
+        await Promise.all([carregarEstoque(), carregarEnderecos()]);
+      } catch (falha) {
+        erro.textContent = falha.message || 'Não foi possível conectar ao servidor.';
+      } finally {
+        botao.disabled = false;
+        botao.textContent = 'Entrar';
+      }
+    }
+
+    function sair() {
+      document.getElementById('appShell').hidden = true;
+      document.getElementById('loginPage').hidden = false;
+      document.getElementById('loginIdentificador').focus();
+    }
+
+    document.getElementById('formLogin').addEventListener('submit', entrar);
+    document.getElementById('movTipo').addEventListener('change', ajustarCamposEndereco);
+    ajustarCamposEndereco();
+  </script>
+</body>
+</html>
