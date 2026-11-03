@@ -10,6 +10,14 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+app.get('/', (req, res) => {
+  res.send('API a funcionar com sucesso!');
+});
+
+app.get('/api/hello', (req, res) => {
+  res.json({ msg: 'Olá Vercel!' });
+});
+
 app.post('/api/login', async (req, res) => {
   const { login, senha } = req.body || {};
   const identificador = typeof login === 'string' ? login.trim() : '';
@@ -159,6 +167,10 @@ app.get('/api/picking', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Servidor WMS rodando em http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Servidor WMS rodando em http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
