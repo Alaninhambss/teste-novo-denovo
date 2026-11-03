@@ -1,7 +1,11 @@
-require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
+const authRoutes = require('./routes/auth');
+const productsRouter = require('./src/routes/product');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,87 +14,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+app.use('/api/auth', authRoutes);
+app.use('/api', authRoutes);
+app.use('/api/products', productsRouter);
+app.use('/api', productsRouter);
+
 app.get('/', (req, res) => {
   res.send('API a funcionar com sucesso!');
 });
 
 app.get('/api/hello', (req, res) => {
   res.json({ msg: 'Olá Vercel!' });
-});
-
-app.post('/api/login', async (req, res) => {
-  const { login, senha } = req.body || {};
-  const identificador = typeof login === 'string' ? login.trim() : '';
-
-  if (!identificador || typeof senha !== 'string' || !senha) {
-    return res.status(400).json({ erro: 'Informe o e-mail/matrícula e a senha!' });
-  }
-
-  try {
-    const resultado = await pool.query(`
-      SELECT id_estoquista, nome, email, matricula
-      FROM dynamis.estoquista
-      WHERE (LOWER(email) = LOWER($1) OR matricula = $1)
-        AND senha = $2
-    `, [identificador, senha]);
-
-    if (resultado.rows.length === 0) {
-      return res.status(401).json({ erro: 'Credenciais inválidas.' });
-    }
-
-    res.json({
-      sucesso: true,
-      usuario: resultado.rows[0],
-    });
-  } catch (err) {
-    console.error('Erro no login:', err.message);
-    res.status(500).json({ erro: 'Não foi possível realizar o login.' });
-  }
-});
-
-async function listarProdutos(req, res) {
-  try {
-    const resultado = await pool.query(`
-      SELECT
-        p.id_produto,
-        p.sku,
-        p.codigo_barras,
-        p.descricao,
-        p.categoria,
-        p.marca_modelo,
-        COALESCE(s.saldo_total, 0) AS saldo_total
-      FROM dynamis.produto p
-      LEFT JOIN dynamis.vw_saldo_produto s ON s.id_produto = p.id_produto
-      ORDER BY p.descricao ASC
-    `);
-    res.json(resultado.rows);
-  } catch (err) {
-    console.error('Erro ao buscar produtos:', err.message);
-    res.status(500).json({ erro: 'Erro ao buscar produtos.' });
-  }
-}
-
-app.get('/api/produtos', listarProdutos);
-app.get('/api/dados', listarProdutos);
-
-app.post('/api/produtos', async (req, res) => {
-  const { sku, codigo_barras, descricao, categoria, marca_modelo } = req.body || {};
-  if (!sku || !codigo_barras || !descricao || !categoria) {
-    return res.status(400).json({ erro: 'Campos obrigatórios faltando!' });
-  }
-
-  try {
-    const resultado = await pool.query(`
-      INSERT INTO dynamis.produto
-        (sku, codigo_barras, descricao, categoria, marca_modelo)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `, [sku, codigo_barras, descricao, categoria, marca_modelo || null]);
-    res.status(201).json(resultado.rows[0]);
-  } catch (err) {
-    console.error('Erro ao criar produto:', err.message);
-    res.status(500).json({ erro: 'Erro ao criar produto.' });
-  }
 });
 
 app.get('/api/enderecos', async (req, res) => {
@@ -169,7 +103,7 @@ app.get('/api/picking', async (req, res) => {
 
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`Servidor WMS rodando em http://localhost:${PORT}`);
+    console.log(`Servidor rodando na porta ${PORT}`);
   });
 }
 
