@@ -13,11 +13,12 @@ async function verificarSenha(senha, hashOuSenha) {
   if (BCRYPT_HASH.test(hashOuSenha)) {
     return bcrypt.compare(senha, hashOuSenha);
   }
+  
   return senha === hashOuSenha;
 }
 
 router.post('/register', async (req, res) => {
-  const { nome, email, matricula, password, registrationSecret } = req.body || {};
+  const { nome, email, matricula, password} = req.body || {};
   const nomeNormalizado = typeof nome === 'string' ? nome.trim() : '';
   const emailNormalizado = typeof email === 'string' ? email.trim().toLowerCase() : '';
   const matriculaNormalizada = typeof matricula === 'string' ? matricula.trim() : '';
@@ -132,6 +133,78 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('Erro no login:', err.message);
     res.status(500).json({ erro: 'Não foi possível realizar o login.' });
+  }
+});
+
+router.put('/usuarios/:id', requireLogin, async (req, res) => {
+  if (req.params.id !== req.estoquistaId) {
+    return res.status(403).json({ erro: 'Você só pode atualizar seus próprios dados.' });
+  }
+
+  const { email, novaSenha } = req.body || {};
+  const atualizaEmail = Object.prototype.hasOwnProperty.call(req.body || {}, 'email');
+  const atualizaSenha = typeof novaSenha === 'string' && novaSenha.length > 0;
+  const emailNormalizado = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+  if (!atualizaEmail && !atualizaSenha) {
+    return res.status(400).json({ erro: 'Informe um novo e-mail e/ou uma nova senha.' });
+  }
+  if (atualizaEmail &&
+      (!emailNormalizado || emailNormalizado.length > 254 ||
+       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNormalizado))) {
+    return res.status(400).json({ erro: 'Informe um e-mail válido.' });
+  }
+  if (atualizaSenha &&
+      (novaSenha.length < 8 || Buffer.byteLength(novaSenha, 'utf8') > 72)) {
+    return res.status(400).json({
+      erro: 'A nova senha deve ter ao menos 8 caracteres e no máximo 72 bytes.',
+    });
+  }
+
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret || jwtSecret.length < 32) {
+    console.error('Configuração JWT inválida para atualização de conta.');
+    return res.status(503).json({ erro: 'Atualização de conta indisponível.' });
+  }
+
+  try {
+    const campos = [];
+    const valores = [];
+
+    if (atualizaEmail) {
+      valores.push(emailNormalizado);
+      campos.push(`email = $${valores.length}`);
+    }
+    if (atualizaSenha) {
+      valores.push(await bcrypt.hash(novaSenha, 12));
+      campos.push(`senha = $${valores.length}`);
+    }
+
+    valores.push(req.estoquistaId);
+    const { rows } = await db.query(`
+      UPDATE dynamis.estoquista
+      SET ${campos.join(', ')}
+      WHERE id_estoquista = $${valores.length}
+      RETURNING id_estoquista, nome, email, matricula
+    `, valores);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ erro: 'Estoquista não encontrado.' });
+    }
+
+    const estoquista = rows[0];
+    const token = jwt.sign(
+      { sub: String(estoquista.id_estoquista), email: estoquista.email },
+      jwtSecret,
+      { expiresIn: '1h' },
+    );
+    return res.json({ mensagem: 'Dados atualizados com sucesso.', token, usuario: estoquista });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ erro: 'E-mail já cadastrado.' });
+    }
+    console.error('Erro ao atualizar dados do estoquista:', err.message);
+    return res.status(500).json({ erro: 'Erro ao atualizar dados.' });
   }
 });
 

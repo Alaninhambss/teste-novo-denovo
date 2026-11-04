@@ -5,7 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const pool = require('./db');
-const authRoutes = require('./routes/auth');
+const authRouter = require('./src/routes/auth');
 const productsRouter = require('./src/routes/product');
 const requireLogin = require('./middleware/require-login');
 
@@ -16,8 +16,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/api/auth', authRoutes);
-app.use('/api', authRoutes);
+app.use('/api/auth', authRouter);
+app.use('/api', authRouter);
 app.use('/api/products', productsRouter);
 app.use('/api', productsRouter);
 
