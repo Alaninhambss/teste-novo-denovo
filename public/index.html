@@ -226,10 +226,6 @@
           <label for="registroSenha">Senha (mínimo 8 caracteres)</label>
           <input id="registroSenha" name="password" type="password" minlength="8" autocomplete="new-password" required>
         </div>
-        <div class="form-group">
-          <label for="registroConvite">Chave de convite</label>
-          <input id="registroConvite" name="registrationSecret" type="password" autocomplete="off" required>
-        </div>
         <p id="registroErro" class="login-error" role="alert" aria-live="polite"></p>
         <button id="btnRegistro" class="btn-primary" type="submit">Criar conta</button>
         <button id="voltarLogin" type="button" style="margin-top: 12px; border: 0; background: none; color: var(--primary); cursor: pointer; font: inherit; text-decoration: underline;">Voltar ao login</button>
@@ -793,7 +789,6 @@
             email: dados.get('email'),
             matricula: dados.get('matricula'),
             password: dados.get('password'),
-            registrationSecret: dados.get('registrationSecret'),
           }),
         });
 

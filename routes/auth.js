@@ -1,6 +1,5 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
-const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const requireLogin = require('../middleware/require-login');
@@ -18,7 +17,7 @@ async function verificarSenha(senha, hashOuSenha) {
 }
 
 router.post('/register', async (req, res) => {
-  const { nome, email, matricula, password} = req.body || {};
+  const { nome, email, matricula, password } = req.body || {};
   const nomeNormalizado = typeof nome === 'string' ? nome.trim() : '';
   const emailNormalizado = typeof email === 'string' ? email.trim().toLowerCase() : '';
   const matriculaNormalizada = typeof matricula === 'string' ? matricula.trim() : '';
@@ -29,21 +28,6 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({
       erro: 'Informe nome, e-mail, matrícula e senha (mínimo 8 caracteres; máximo 72 bytes).',
     });
-  }
-
-  const configuredRegistrationSecret = process.env.REGISTRATION_SECRET;
-  if (!configuredRegistrationSecret || configuredRegistrationSecret.length < 32) {
-    return res.status(503).json({ erro: 'Cadastro indisponível: chave de convite não configurada.' });
-  }
-
-  if (typeof registrationSecret !== 'string') {
-    return res.status(403).json({ erro: 'Chave de convite inválida.' });
-  }
-
-  const expectedDigest = crypto.createHash('sha256').update(configuredRegistrationSecret).digest();
-  const suppliedDigest = crypto.createHash('sha256').update(registrationSecret).digest();
-  if (!crypto.timingSafeEqual(expectedDigest, suppliedDigest)) {
-    return res.status(403).json({ erro: 'Chave de convite inválida.' });
   }
 
   const jwtSecret = process.env.JWT_SECRET;

@@ -6,8 +6,8 @@ const cors = require('cors');
 const path = require('path');
 const pool = require('./db');
 const authRouter = require('./src/routes/auth');
-const productsRouter = require('./src/routes/product');
-const requireLogin = require('./middleware/require-login');
+const productsRouter = require('./src/routes/products');
+const requireAuth = require('./src/middleware/requireAuth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -18,8 +18,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/auth', authRouter);
 app.use('/api', authRouter);
-app.use('/api/products', productsRouter);
-app.use('/api', productsRouter);
+app.use('/api/products', requireAuth, productsRouter);
+app.use('/api', requireAuth, productsRouter);
 
 app.get('/', (req, res) => {
   res.send('API a funcionar com sucesso!');
