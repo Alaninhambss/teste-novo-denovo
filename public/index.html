@@ -227,6 +227,11 @@
     </div>
 
     <div id="secao-estoque" class="secao active">
+      <div class="card" style="margin-bottom: 16px;">
+        <h3>Dashboard – Produtos</h3>
+        <button id="loadBtn" class="btn-primary" type="button" style="margin-top: 12px;">Carregar Produtos</button>
+        <ul id="productList" aria-live="polite" style="margin: 16px 0 0 20px;"></ul>
+      </div>
       <div class="card">
         <h3>Saldo Físico no Galpão</h3>
         <div class="table-scroll">
@@ -380,11 +385,14 @@
 
   <script>
     let cacheProdutos = [];
+    let authToken = null;
     let cacheEnderecos = [];
     let toastTimer;
 
     async function requisicaoJson(url, opcoes) {
-      const resposta = await fetch(url, opcoes);
+      const headers = new Headers(opcoes?.headers || {});
+      if (authToken) headers.set('Authorization', `Bearer ${authToken}`);
+      const resposta = await fetch(url, { ...opcoes, headers });
       const dados = await resposta.json();
       if (!resposta.ok) {
         throw new Error(dados.erro || 'Não foi possível concluir a solicitação.');
@@ -424,6 +432,7 @@
         const produtos = await requisicaoJson('/api/produtos');
         if (!Array.isArray(produtos)) throw new Error('Resposta inválida ao carregar produtos.');
         cacheProdutos = produtos;
+        renderizarListaProdutos(produtos);
         corpo.replaceChildren();
 
         if (cacheProdutos.length === 0) {
@@ -454,6 +463,41 @@
       } catch (erro) {
         criarLinhaVazia(corpo, 5, 'Erro ao carregar estoque.');
         toast(erro.message, '#dc2626');
+      }
+    }
+
+    function renderizarListaProdutos(produtos) {
+      const lista = document.getElementById('productList');
+      lista.replaceChildren();
+
+      if (produtos.length === 0) {
+        const item = document.createElement('li');
+        item.textContent = 'Nenhum produto cadastrado.';
+        lista.appendChild(item);
+        return;
+      }
+
+      produtos.forEach(produto => {
+        const item = document.createElement('li');
+        item.textContent = `${produto.id_produto}: ${produto.descricao} (SKU: ${produto.sku}) – Saldo: ${produto.saldo_total ?? 0}`;
+        lista.appendChild(item);
+      });
+    }
+
+    async function loadProducts() {
+      const botao = document.getElementById('loadBtn');
+      botao.disabled = true;
+      try {
+        const produtos = await requisicaoJson('/api/products');
+        if (!Array.isArray(produtos)) {
+          throw new Error('Resposta inválida ao carregar produtos.');
+        }
+        cacheProdutos = produtos;
+        renderizarListaProdutos(produtos);
+      } catch (erro) {
+        toast(erro.message || 'Erro ao buscar produtos.', '#dc2626');
+      } finally {
+        botao.disabled = false;
       }
     }
 
@@ -686,7 +730,8 @@
           }),
         });
 
-        if (!resultado.usuario) throw new Error('Resposta inválida do servidor.');
+        if (!resultado.usuario || !resultado.token) throw new Error('Resposta inválida do servidor.');
+        authToken = resultado.token;
         document.getElementById('nomeOperador').textContent =
           `${resultado.usuario.nome || resultado.usuario.email || resultado.usuario.matricula} (${resultado.usuario.matricula || 'estoquista'})`;
         formulario.reset();
@@ -702,12 +747,14 @@
     }
 
     function sair() {
+      authToken = null;
       document.getElementById('appShell').hidden = true;
       document.getElementById('loginPage').hidden = false;
       document.getElementById('loginIdentificador').focus();
     }
 
     document.getElementById('formLogin').addEventListener('submit', entrar);
+    document.getElementById('loadBtn').addEventListener('click', loadProducts);
     document.getElementById('movTipo').addEventListener('change', ajustarCamposEndereco);
     ajustarCamposEndereco();
   </script>

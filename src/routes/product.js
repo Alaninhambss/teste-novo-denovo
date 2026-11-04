@@ -1,5 +1,6 @@
 const express = require('express');
 const db = require('../../db');
+const requireLogin = require('../../middleware/require-login');
 
 const router = express.Router();
 
@@ -45,10 +46,10 @@ async function criarProduto(req, res) {
   }
 }
 
-router.get('/', listarProdutos);
-router.get('/produtos', listarProdutos);
-router.get('/dados', listarProdutos);
-router.post('/', criarProduto);
-router.post('/produtos', criarProduto);
+router.get('/', requireLogin, listarProdutos);
+router.get('/produtos', requireLogin, listarProdutos);
+router.get('/dados', requireLogin, listarProdutos);
+router.post('/', requireLogin, criarProduto);
+router.post('/produtos', requireLogin, criarProduto);
 
 module.exports = router;

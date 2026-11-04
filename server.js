@@ -3,16 +3,18 @@ if (process.env.NODE_ENV !== 'production') {
 }
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const productsRouter = require('./src/routes/product');
+const requireLogin = require('./middleware/require-login');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api', authRoutes);
@@ -24,7 +26,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/api/hello', (req, res) => {
-  res.json({ msg: 'Olá Vercel!' });
+  res.json({ message: 'Olá, tudo pronto! 🎉' });
 });
 
 app.get('/api/enderecos', async (req, res) => {
