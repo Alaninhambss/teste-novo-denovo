@@ -205,6 +205,35 @@
         <p id="loginErro" class="login-error" role="alert" aria-live="polite"></p>
         <button id="btnLogin" class="btn-primary" type="submit">Entrar</button>
       </form>
+      <p style="margin-top: 16px;">Não tem conta?
+        <button id="mostrarCadastro" type="button" style="border: 0; background: none; color: var(--primary); cursor: pointer; font: inherit; text-decoration: underline;">Registre-se</button>
+      </p>
+      <form id="formRegistro" hidden style="margin-top: 20px;">
+        <h2 style="margin-bottom: 16px;">Criar conta de estoquista</h2>
+        <div class="form-group">
+          <label for="registroNome">Nome</label>
+          <input id="registroNome" name="nome" autocomplete="name" required>
+        </div>
+        <div class="form-group">
+          <label for="registroEmail">E-mail</label>
+          <input id="registroEmail" name="email" type="email" autocomplete="email" required>
+        </div>
+        <div class="form-group">
+          <label for="registroMatricula">Matrícula</label>
+          <input id="registroMatricula" name="matricula" required>
+        </div>
+        <div class="form-group">
+          <label for="registroSenha">Senha (mínimo 8 caracteres)</label>
+          <input id="registroSenha" name="password" type="password" minlength="8" autocomplete="new-password" required>
+        </div>
+        <div class="form-group">
+          <label for="registroConvite">Chave de convite</label>
+          <input id="registroConvite" name="registrationSecret" type="password" autocomplete="off" required>
+        </div>
+        <p id="registroErro" class="login-error" role="alert" aria-live="polite"></p>
+        <button id="btnRegistro" class="btn-primary" type="submit">Criar conta</button>
+        <button id="voltarLogin" type="button" style="margin-top: 12px; border: 0; background: none; color: var(--primary); cursor: pointer; font: inherit; text-decoration: underline;">Voltar ao login</button>
+      </form>
     </section>
   </main>
 
@@ -393,9 +422,14 @@
       const headers = new Headers(opcoes?.headers || {});
       if (authToken) headers.set('Authorization', `Bearer ${authToken}`);
       const resposta = await fetch(url, { ...opcoes, headers });
-      const dados = await resposta.json();
+      let dados;
+      try {
+        dados = await resposta.json();
+      } catch {
+        throw new Error('A API retornou uma resposta inválida. Verifique o JSON enviado.');
+      }
       if (!resposta.ok) {
-        throw new Error(dados.erro || 'Não foi possível concluir a solicitação.');
+        throw new Error(dados.erro || dados.error || 'Não foi possível concluir a solicitação.');
       }
       return dados;
     }
@@ -721,29 +755,76 @@
       botao.textContent = 'Entrando...';
 
       try {
-        const resultado = await requisicaoJson('/api/login', {
+        const resultado = await requisicaoJson('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            login: dados.get('login'),
-            senha: dados.get('senha'),
+            email: dados.get('login'),
+            password: dados.get('senha'),
           }),
         });
 
         if (!resultado.usuario || !resultado.token) throw new Error('Resposta inválida do servidor.');
-        authToken = resultado.token;
-        document.getElementById('nomeOperador').textContent =
-          `${resultado.usuario.nome || resultado.usuario.email || resultado.usuario.matricula} (${resultado.usuario.matricula || 'estoquista'})`;
-        formulario.reset();
-        document.getElementById('loginPage').hidden = true;
-        document.getElementById('appShell').hidden = false;
-        await Promise.all([carregarEstoque(), carregarEnderecos()]);
+        await iniciarSessao(resultado);
       } catch (falha) {
         erro.textContent = falha.message || 'Não foi possível conectar ao servidor.';
       } finally {
         botao.disabled = false;
         botao.textContent = 'Entrar';
       }
+    }
+
+    async function registrar(evento) {
+      evento.preventDefault();
+      const formulario = document.getElementById('formRegistro');
+      const botao = document.getElementById('btnRegistro');
+      const erro = document.getElementById('registroErro');
+      const dados = new FormData(formulario);
+      erro.textContent = '';
+      botao.disabled = true;
+      botao.textContent = 'Criando conta...';
+
+      try {
+        const resultado = await requisicaoJson('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nome: dados.get('nome'),
+            email: dados.get('email'),
+            matricula: dados.get('matricula'),
+            password: dados.get('password'),
+            registrationSecret: dados.get('registrationSecret'),
+          }),
+        });
+
+        if (!resultado.usuario || !resultado.token) {
+          throw new Error('Resposta inválida do servidor.');
+        }
+        formulario.reset();
+        await iniciarSessao(resultado);
+      } catch (falha) {
+        erro.textContent = falha.message || 'Não foi possível criar a conta.';
+      } finally {
+        botao.disabled = false;
+        botao.textContent = 'Criar conta';
+      }
+    }
+
+    async function iniciarSessao(resultado) {
+      authToken = resultado.token;
+      document.getElementById('nomeOperador').textContent =
+        `${resultado.usuario.nome || resultado.usuario.email || resultado.usuario.matricula} (${resultado.usuario.matricula || 'estoquista'})`;
+      document.getElementById('formLogin').reset();
+      document.getElementById('loginPage').hidden = true;
+      document.getElementById('appShell').hidden = false;
+      await Promise.all([carregarEstoque(), carregarEnderecos()]);
+    }
+
+    function alternarCadastro(mostrar) {
+      document.getElementById('formLogin').hidden = mostrar;
+      document.getElementById('formRegistro').hidden = !mostrar;
+      document.getElementById('mostrarCadastro').parentElement.hidden = mostrar;
+      (mostrar ? document.getElementById('registroNome') : document.getElementById('loginIdentificador')).focus();
     }
 
     function sair() {
@@ -754,6 +835,9 @@
     }
 
     document.getElementById('formLogin').addEventListener('submit', entrar);
+    document.getElementById('formRegistro').addEventListener('submit', registrar);
+    document.getElementById('mostrarCadastro').addEventListener('click', () => alternarCadastro(true));
+    document.getElementById('voltarLogin').addEventListener('click', () => alternarCadastro(false));
     document.getElementById('loadBtn').addEventListener('click', loadProducts);
     document.getElementById('movTipo').addEventListener('change', ajustarCamposEndereco);
     ajustarCamposEndereco();

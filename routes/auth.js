@@ -1,5 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const requireLogin = require('../middleware/require-login');
@@ -14,6 +15,65 @@ async function verificarSenha(senha, hashOuSenha) {
   }
   return senha === hashOuSenha;
 }
+
+router.post('/register', async (req, res) => {
+  const { nome, email, matricula, password, registrationSecret } = req.body || {};
+  const nomeNormalizado = typeof nome === 'string' ? nome.trim() : '';
+  const emailNormalizado = typeof email === 'string' ? email.trim().toLowerCase() : '';
+  const matriculaNormalizada = typeof matricula === 'string' ? matricula.trim() : '';
+
+  if (!nomeNormalizado || !emailNormalizado || !matriculaNormalizada ||
+      typeof password !== 'string' || password.length < 8 ||
+      Buffer.byteLength(password, 'utf8') > 72) {
+    return res.status(400).json({
+      erro: 'Informe nome, e-mail, matrícula e senha (mínimo 8 caracteres; máximo 72 bytes).',
+    });
+  }
+
+  const configuredRegistrationSecret = process.env.REGISTRATION_SECRET;
+  if (!configuredRegistrationSecret || configuredRegistrationSecret.length < 32) {
+    return res.status(503).json({ erro: 'Cadastro indisponível: chave de convite não configurada.' });
+  }
+
+  if (typeof registrationSecret !== 'string') {
+    return res.status(403).json({ erro: 'Chave de convite inválida.' });
+  }
+
+  const expectedDigest = crypto.createHash('sha256').update(configuredRegistrationSecret).digest();
+  const suppliedDigest = crypto.createHash('sha256').update(registrationSecret).digest();
+  if (!crypto.timingSafeEqual(expectedDigest, suppliedDigest)) {
+    return res.status(403).json({ erro: 'Chave de convite inválida.' });
+  }
+
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret || jwtSecret.length < 32) {
+    console.error('Configuração JWT inválida para cadastro.');
+    return res.status(503).json({ erro: 'Cadastro indisponível.' });
+  }
+
+  try {
+    const senhaHash = await bcrypt.hash(password, 12);
+    const { rows } = await db.query(`
+      INSERT INTO dynamis.estoquista (nome, email, matricula, senha)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id_estoquista, nome, email, matricula
+    `, [nomeNormalizado, emailNormalizado, matriculaNormalizada, senhaHash]);
+    const estoquista = rows[0];
+    const token = jwt.sign(
+      { sub: String(estoquista.id_estoquista), email: estoquista.email },
+      jwtSecret,
+      { expiresIn: '1h' },
+    );
+
+    return res.status(201).json({ sucesso: true, token, usuario: estoquista });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ erro: 'E-mail ou matrícula já cadastrado.' });
+    }
+    console.error('Erro ao registrar estoquista:', err.message);
+    return res.status(500).json({ erro: 'Não foi possível registrar o estoquista.' });
+  }
+});
 
 router.post('/login', async (req, res) => {
   const { login, email, senha, password } = req.body || {};

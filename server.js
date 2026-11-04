@@ -103,6 +103,21 @@ app.get('/api/picking', async (req, res) => {
   }
 });
 
+app.use((err, req, res, next) => {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({
+      erro: 'JSON inválido no corpo da requisição. Use aspas duplas nos nomes dos campos e valores de texto.',
+    });
+  }
+
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ erro: 'Corpo da requisição excede o tamanho permitido.' });
+  }
+
+  console.error('Erro não tratado no servidor:', err);
+  return res.status(500).json({ erro: 'Erro interno do servidor.' });
+});
+
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
